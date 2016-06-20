@@ -1,122 +1,108 @@
-var ovslider = function(el, minwidth, gutter){
+function scrollControl(main, dialog, preload){
 	var self = this;
-	
-	el = $(el);
-	var wrapper = el.children().first();
-	this.els = wrapper.children();
+	self.$main = $(main);
+	self.$dialog = $(dialog);
+	self.$preload = $(preload);
 
+	if (!self.$main.length) {console.error('ScrollControl: no main found', main) }
+	if (!self.$dialog.length) {console.error('ScrollControl: no dialog found', dialog) }
+	if (!self.$preload.length) {console.error('ScrollControl: no preload found', preload) }
 
-	this.elsInView = this.els.length;
-	this.elsPassed = 0;
-	this.elsOver = 0;
+	self.originalMarginTop = parseInt(self.$main.css('margin-top'));
+	self.saveScrollPos = 0;
+	self.stateIs = '';
+	self.set = function(key) {
+		self.stateIs = (key);
+		var sct = $(window).scrollTop();
+		var h = $(window).height();
 
-	this.elWidth = minwidth;
+		if (key === 'dialog') {
+			// dialog
+			window.navigation.navLock = 1;
+			$(window).scrollTop(0);
+			self.saveScrollPos = sct;
+			self.$main.css({
+				position: 'fixed',
+				'margin-top': sct*-1 + self.originalMarginTop,
+				// 'margin-right': self.scrollBarWidth,
+				overflow: 'hidden',
+				top: 0,
+				bottom: 0,
+				left: 0,
+				right: 0
+			}).addClass('disabled');
 
-	var c = {
-		out: 'slide-out',
-		in: 'slide-in',
-		left: 'slide-out-left',
-		right: 'slide-out-right'
-	};
-
-	this.setup = function(){
-		var overflow = 0;
-		self.elWidth = el.width() / self.els.length;
-		while(self.elWidth < minwidth) {
-			overflow++;
-			self.elsInView = self.els.length - overflow;
-			self.elWidth = el.width() / self.elsInView;
+			self.$dialog.addClass('is-visible');
 		}
-		var totalWidth = self.elWidth * self.els.length;
-		totalWidth = totalWidth + (gutter * self.els.length);
+		if (key === 'preload') {
+			// preload
+			window.navigation.navLock = 1;
+			$(window).scrollTop(0);
+			self.saveScrollPos = sct;
+			self.$main.css({
+				position: 'fixed',
+				'margin-top': sct*-1 + self.originalMarginTop,
+				// 'margin-right': self.scrollBarWidth,
+				overflow: 'hidden',
+				top: 0,
+				bottom: 0,
+				left: 0,
+				right: 0
+			}).addClass('disabled');
 
-		wrapper.css('width', totalWidth);
-		self.els.css('width', self.elWidth);
-
-		setTimeout(function(){
-			window.menublocks.synch();
-			window.menuTitles.synch();
-		},50);
-	};
-	this.setupSlides = function(){
-		if (self.elsPassed < 0) {
-			self.elsPassed = 0;
+			// self.$dialog.removeClass('is-visible');
 		}
-		self.elsOver = self.els.length - (self.elsInView + self.elsPassed);
+		if (key === 'main') {
+			// main
+			window.navigation.navLock = 0;
+			self.$main.css({
+				position: 'static',
+				'margin-top': self.originalMarginTop,
+				// 'margin-right': 0,
+				overflow: 'visible',
+				top: 'auto',
+				bottom: 'auto'
+			}).removeClass('disabled');;
+			$(window).scrollTop(self.saveScrollPos + self.originalMarginTop);
 
-		var maxout = 50;
-		while (self.elsOver < 0) {
-			self.elsPassed--;
-			self.elsOver = self.els.length - (self.elsInView + self.elsPassed);
-			maxout--;
-			if (maxout === 0) {
-				console.error('not enough Elements');
-				return false;
-			}
+			self.$dialog.removeClass('is-visible');
 		}
-
-		self.els.each(function(i){
-			var $t = $(this);
-			var e = i+1;
-			if (e <= self.elsPassed) {
-				$t.removeClass([c.in, c.right].join(' ')).addClass([c.out, c.left].join(' '));
-			}
-			if (e > self.elsPassed && e <= (self.elsInView + self.elsPassed)) {
-				$t.removeClass([c.right, c.left, c.out].join(' ')).addClass([c.in].join(' '));
-			}
-			if (e > (self.elsInView + self.elsPassed)) {
-				$t.removeClass([c.in, c.left].join(' ')).addClass([c.out, c.right].join(' '));
-			}
-		});
-
-		if (self.elsPassed > 0) {
-			el.addClass('overflow-left');
-		}else{
-			el.removeClass('overflow-left');
-		}
-		if (self.elsOver > 0) {
-			el.addClass('overflow-right');
-		}else{
-			el.removeClass('overflow-right');
-		}
-
-		var negPos = self.elWidth * self.elsPassed;
-		wrapper.css('transform', 'translate3D(-'+negPos+'px, 0, 0)');
-	};
-
-	this.goToSlide = function(ind) {
-		if (ind === '+') {
-			self.elsPassed++;
-			self.setupSlides();
-		}else if (ind === '-') {
-			self.elsPassed--;
-		}else{
-			self.elsPassed = ind - 1;
-		}
-		self.setupSlides();
 	}
 
-	this.runSetup = function(){
-		this.setup();
-		this.setupSlides();
-	};
-	this.runSetup();
+	this.getScrollbarWidth = function() {
+	    var outer = document.createElement("div");
+	    outer.style.visibility = "hidden";
+	    outer.style.width = "100px";
+	    outer.style.msOverflowStyle = "scrollbar"; // needed for WinJS apps
 
-	this.hammer = new Hammer(el[0]);
-	this.hammer.on('swipe', function(ev) {
-		if (ev.deltaX < -50) {
-			self.goToSlide('+');
-		}
-		if (ev.deltaX > 50) {
-			self.goToSlide('-');
-		}
-	});
+	    document.body.appendChild(outer);
 
-	var to;
-	$(window).on('resize', function(){
-		clearTimeout(to);
-		to = setTimeout(function(){
-			self.runSetup();
-		}, 200);
-	});
+	    var widthNoScroll = outer.offsetWidth;
+	    // force scrollbars
+	    outer.style.overflow = "scroll";
+
+	    // add innerdiv
+	    var inner = document.createElement("div");
+	    inner.style.width = "100%";
+	    outer.appendChild(inner);        
+
+	    var widthWithScroll = inner.offsetWidth;
+
+	    // remove divs
+	    outer.parentNode.removeChild(outer);
+
+	    self.scrollBarWidth = widthNoScroll - widthWithScroll;
+	}	
+	this.getScrollbarWidth();
+
+	var mainContent = this.$main.html().replace(/\n/g, '').length;
+	if (!mainContent) {
+		
+		this.$main.load(window.location.protocol + '//' + window.location.host + '/' + ' .main__content', function(){
+			$(window).trigger('scroll');
+			$(document).trigger('__ready');
+		})
+	}
 }
+
+var scroll = new scrollControl('.main', '.dialog', '.header');
